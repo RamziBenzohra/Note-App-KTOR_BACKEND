@@ -1,0 +1,1 @@
+rootProject.name = "com.note_application.noteappbackend"
