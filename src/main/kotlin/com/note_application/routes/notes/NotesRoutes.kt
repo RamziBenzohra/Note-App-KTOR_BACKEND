@@ -80,34 +80,43 @@ fun Route.notesRoute(mongodbOperation: MongodbOperation){
            )
        }
        post (path = "note") {
-           val userId = call.request.queryParameters["userId"]?:return@post call.respondText (
-               text = "Missing the User ID",
-               status = HttpStatusCode.BadRequest
-           )
-           mongodbOperation.getUserInfoById(userId)?: return@post call.respondText (
-               text = "User does not exist",
-               status = HttpStatusCode.BadRequest
-           )
-           val title = call.request.queryParameters["title"]?:return@post call.respondText (
-               text = "Missing the User ID",
-               status = HttpStatusCode.BadRequest
-           )
-           val subTitle = call.request.queryParameters["subTitle"]?:""
-           val noteText = call.request.queryParameters["noteText"]?:return@post call.respondText (
-               text = "Missing the User ID",
-               status = HttpStatusCode.BadRequest
-           )
-           val color = call.request.queryParameters["color"]?:"#000000"
-           val imageLink = call.request.queryParameters["imageLink"]?:""
-           val webLink = call.request.queryParameters["webLink"]?:""
+           val noteFromRequest = call.receiveNullable<NoteRequest>()?:run {
+               call.respondText(text = "Error receiving object", status = HttpStatusCode.BadRequest)
+               return@post
+           }
+
+           if (noteFromRequest.title.isBlank()){
+               call.respondText (
+                   text = "Missing the title",
+                   status = HttpStatusCode.BadRequest
+               )
+               return@post
+           }
+
+           if (noteFromRequest.subTitle.isBlank()){
+               call.respondText (
+                   text = "Missing the subtitle",
+                   status = HttpStatusCode.BadRequest
+               )
+               return@post
+           }
+
+           if (noteFromRequest.noteText.isBlank()){
+               call.respondText (
+                   text = "Missing the note text",
+                   status = HttpStatusCode.BadRequest
+               )
+               return@post
+           }
+
            val newNote=Note(
-               posterId = ObjectId(userId)
-               ,title = title,
-               subTitle = subTitle,
-               noteText = noteText,
-               color = color,
-               imageLink = imageLink,
-               webLink = webLink,
+                       posterId = ObjectId(noteFromRequest.posterId)
+               ,title = noteFromRequest.title,
+               subTitle = noteFromRequest.subTitle,
+               noteText = noteFromRequest.noteText,
+               color = noteFromRequest.color,
+               imageLink = noteFromRequest.imageLink,
+               webLink = noteFromRequest.webLink,
                timeStamp = System.currentTimeMillis()
            )
            val isInserted=mongodbOperation.insertNote(newNote)
@@ -124,21 +133,19 @@ fun Route.notesRoute(mongodbOperation: MongodbOperation){
            )
        }
        delete (path = "note") {
-           val userId = call.request.queryParameters["userId"]?:return@delete call.respondText (
-               text = "Missing the User ID",
-               status = HttpStatusCode.BadRequest
-           )
-           mongodbOperation.getUserInfoById(userId)?: return@delete call.respondText (
+
+           val noteFromRequest = call.receiveNullable<NoteRequest>()?:run {
+               call.respondText(text = "Error receiving object", status = HttpStatusCode.BadRequest)
+               return@delete
+           }
+           mongodbOperation.getUserInfoById(noteFromRequest.posterId)?: return@delete call.respondText (
                text = "User does not exist",
                status = HttpStatusCode.BadRequest
            )
-           val noteId = call.request.queryParameters["noteId"]?:return@delete call.respondText (
-               text = "Missing the note ID",
-               status = HttpStatusCode.BadRequest
-           )
-           val isNoteExist = mongodbOperation.getNoteByNoteId(noteId)!=null
+
+           val isNoteExist = mongodbOperation.getNoteByNoteId(noteFromRequest.id)!=null
            if (isNoteExist){
-               val newNotes=mongodbOperation.deleteNote(noteId,userId)?:return@delete call.respondText (
+               val newNotes=mongodbOperation.deleteNote(noteFromRequest.id,noteFromRequest.posterId)?:return@delete call.respondText (
                    text = "Error: can't delete note",
                    status = HttpStatusCode.BadRequest
                )
@@ -154,19 +161,17 @@ fun Route.notesRoute(mongodbOperation: MongodbOperation){
 
        }
        patch (path = "note") {
-           val userId = call.request.queryParameters["userId"]?:return@patch call.respondText (
-               text = "Missing the User ID",
-               status = HttpStatusCode.BadRequest
-           )
-           mongodbOperation.getUserInfoById(userId)?: return@patch call.respondText (
+           val noteFromRequest = call.receiveNullable<NoteRequest>()?:run {
+               call.respondText(text = "Error receiving object", status = HttpStatusCode.BadRequest)
+               return@patch
+           }
+
+           mongodbOperation.getUserInfoById(noteFromRequest.posterId)?: return@patch call.respondText (
                text = "User does not exist",
                status = HttpStatusCode.BadRequest
            )
-           val noteId = call.request.queryParameters["noteId"]?:return@patch call.respondText (
-               text = "Missing the note ID",
-               status = HttpStatusCode.BadRequest
-           )
-           val isNoteExist = mongodbOperation.getNoteByNoteId(noteId)!=null
+
+           val isNoteExist = mongodbOperation.getNoteByNoteId(noteFromRequest.id)!=null
            if (!isNoteExist){
                call.respondText (
                    text = "Note not exist",
@@ -174,31 +179,18 @@ fun Route.notesRoute(mongodbOperation: MongodbOperation){
                )
                return@patch
            }
-           val title = call.request.queryParameters["title"]?:return@patch call.respondText (
-               text = "Missing the title",
-               status = HttpStatusCode.BadRequest
-           )
-           val subTitle = call.request.queryParameters["subTitle"]?:""
-           val noteText = call.request.queryParameters["noteText"]?:return@patch call.respondText (
-               text = "Missing the noteText",
-               status = HttpStatusCode.BadRequest
-           )
-           val color = call.request.queryParameters["color"]?:"#000000"
-           val imageLink = call.request.queryParameters["imageLink"]?:""
-           val webLink = call.request.queryParameters["webLink"]?:""
            val newNote=Note(
-               id = ObjectId(noteId),
-               posterId = ObjectId(userId),
-               title = title,
-               subTitle = subTitle,
-               noteText = noteText,
-               color = color,
-               imageLink = imageLink,
-               webLink = webLink,
+               posterId = ObjectId(noteFromRequest.posterId)
+               ,title = noteFromRequest.title,
+               subTitle = noteFromRequest.subTitle,
+               noteText = noteFromRequest.noteText,
+               color = noteFromRequest.color,
+               imageLink = noteFromRequest.imageLink,
+               webLink = noteFromRequest.webLink,
                timeStamp = System.currentTimeMillis()
            )
 
-           val noteUpdate = mongodbOperation.updateNote(noteId,newNote)
+           val noteUpdate = mongodbOperation.updateNote(noteFromRequest.id,newNote)
            if (noteUpdate!=null){
                call.respondText (
                    text = noteUpdate.id.toString(),
@@ -207,7 +199,7 @@ fun Route.notesRoute(mongodbOperation: MongodbOperation){
            }else{
                call.respondText (
                    text = "Error Failed to update",
-                   status = HttpStatusCode.OK
+                   status = HttpStatusCode.Conflict
                )
            }
 
