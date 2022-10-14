@@ -84,6 +84,10 @@ fun Route.notesRoute(mongodbOperation: MongodbOperation){
                call.respondText(text = "Error receiving object", status = HttpStatusCode.BadRequest)
                return@post
            }
+           mongodbOperation.getUserInfoById(noteFromRequest.posterId)?: return@post call.respondText (
+               text = "User does not exist",
+               status = HttpStatusCode.BadRequest
+           )
 
            if (noteFromRequest.title.isBlank()){
                call.respondText (
